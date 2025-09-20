@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDO Authentication with WSO2 IS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-shield-alt"></i> FIDO Authentication</h1>
+            <p>Secure biometric authentication with WSO2 Identity Server</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Step 1: Login with WSO2 IS -->
+            <div class="card" id="login-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-sign-in-alt"></i> Step 1: Login with WSO2 IS</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" placeholder="Enter your username" value="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" placeholder="Enter your password" value="admin">
+                    </div>
+                    <div class="login-buttons">
+                        <button class="btn btn-primary" onclick="loginWithWso2()">
+                            <i class="fas fa-key"></i> Login with Password
+                        </button>
+                        <div class="divider">OR</div>
+                        <button class="btn btn-success" onclick="redirectToWso2PasskeyLogin()">
+                            <i class="fas fa-fingerprint"></i> Login with Passkey (WSO2 IS)
+                        </button>
+                        <div class="divider">OR</div>
+                        <button class="btn btn-warning" onclick="startNativeAuth()">
+                            <i class="fas fa-mobile-alt"></i> Native Authentication (Passkey)
+                        </button>
+                    </div>
+                    <div id="login-status-message" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Native Authentication Card -->
+            <div class="card" id="native-auth-card" style="display: none;">
+                <div class="card-header">
+                    <h2><i class="fas fa-mobile-alt"></i> Native Authentication</h2>
+                </div>
+                <div class="card-body">
+                    <p>Use native authentication flow with passkey/biometric authentication.</p>
+                    <button class="btn btn-warning" onclick="startNativeAuth()" id="native-auth-btn">
+                        <i class="fas fa-fingerprint"></i> Start Native Authentication
+                    </button>
+                    <div id="native-auth-status-message" class="status-message"></div>
+                </div>
+            </div>
+
+
+            <!-- Results Section -->
+            <div class="card" id="results-card" style="display: none;">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-bar"></i> Results</h2>
+                </div>
+                <div class="card-body">
+                    <div id="results-content"></div>
+                    <button class="btn btn-secondary" onclick="resetFlow()">
+                        <i class="fas fa-redo"></i> Start Over
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Modal -->
+        <div id="loading-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="spinner"></div>
+                <p id="loading-message">Processing...</p>
+            </div>
+        </div>
+    </div>
+
+                 <script src="/js/app.js?v=15"></script>
+</body>
+</html> 

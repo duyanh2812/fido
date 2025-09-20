@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Success - FIDO Authentication</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-check-circle text-success"></i> Login Success!</h1>
+            <p>Passkey authentication completed successfully</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Success Card -->
+            <div class="card success-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-shield-alt"></i> Authentication Successful</h2>
+                </div>
+                <div class="card-body">
+                    <div class="success-message">
+                        <i class="fas fa-fingerprint fa-3x text-success"></i>
+                        <h3 id="success-title">🎉 Passkey Login Successful!</h3>
+                        <p id="success-description">You have successfully authenticated using your biometric credentials.</p>
+                    </div>
+
+
+                    <!-- User Information -->
+                    <div class="user-info" id="user-info" style="display: none;">
+                        <h4><i class="fas fa-user"></i> User Information</h4>
+                        <div class="user-details">
+                            <div class="user-field">
+                                <label>Username:</label>
+                                <span id="username" class="user-value"></span>
+                            </div>
+                            <div class="user-field">
+                                <label>Organization:</label>
+                                <span id="org-name" class="user-value"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FIDO Registration Section -->
+                    <div class="fido-section" id="fido-section">
+                        <h4><i class="fas fa-fingerprint"></i> FIDO Passkey Management</h4>
+                        <div class="fido-info">
+                            <p>Manage your biometric credentials for secure authentication.</p>
+                            <div class="button-group">
+                                <button onclick="startFidoRegistration()" class="btn btn-success" id="fido-register-btn">
+                                    <i class="fas fa-plus"></i> Register FIDO Credential
+                                </button>
+                                <button onclick="deregisterFidoCredential()" class="btn btn-danger" id="fido-deregister-btn" style="display: none;">
+                                    <i class="fas fa-trash"></i> Deregister FIDO Credential
+                                </button>
+                            </div>
+                            <div id="fido-status-message" class="status-message"></div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button onclick="logoutSuccess()" class="btn btn-danger">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Helper functions from app.js
+        function makeRequest(url, options = {}) {
+            return fetch(url, options)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                });
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status-message ${type}`;
+                element.style.display = 'block';
+            }
+        }
+
+        function hideMessage(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.display = 'none';
+            }
+        }
+
+        function showLoading(message = 'Loading...') {
+            // Simple loading implementation
+            console.log('Loading:', message);
+        }
+
+        function hideLoading() {
+            console.log('Loading complete');
+        }
+
+        // FIDO Registration function
+        async function startFidoRegistration() {
+            try {
+                showLoading('Starting FIDO registration...');
+                hideMessage('fido-status-message');
+
+                // Get user info from JWT token
+                const accessToken = localStorage.getItem('accessToken');
+                let username = 'admin'; // Default fallback
+                let displayName = 'Admin User'; // Default fallback
+                
+                if (accessToken) {
+                    try {
+                        const tokenParts = accessToken.split('.');
+                        if (tokenParts.length === 3) {
+                            const payload = JSON.parse(atob(tokenParts[1]));
+                            username = payload.sub || 'admin';
+                            displayName = payload.name || payload.sub || 'Admin User';
+                        }
+                    } catch (error) {
+                        console.warn('Could not decode JWT token, using defaults:', error);
+                    }
+                }
+
+                // Get registration options from backend
+                const response = await makeRequest('/fido/registration-options', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + accessToken
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        displayName: displayName
+                    })
+                });
+
+                if (!response.success) {
+                    throw new Error(response.message || 'Failed to get registration options');
+                }
+
+                const options = response.data;
+                console.log('Registration options:', options);
+                console.log('🔍 Challenge data:', options.publicKeyCredentialCreationOptions.challenge);
+                console.log('🔍 Challenge type:', typeof options.publicKeyCredentialCreationOptions.challenge);
+
+                // Convert challenge to ArrayBuffer
+                let challenge;
+                const challengeData = options.publicKeyCredentialCreationOptions.challenge;
+                
+                if (typeof challengeData === 'string') {
+                    // If it's a string, try to convert from base64/base64url
+                    challenge = base64ToArrayBuffer(challengeData);
+                } else if (challengeData instanceof Uint8Array) {
+                    // If it's already a Uint8Array, convert to ArrayBuffer
+                    challenge = challengeData.buffer;
+                } else if (challengeData instanceof ArrayBuffer) {
+                    // If it's already an ArrayBuffer, use it directly
+                    challenge = challengeData;
+                } else {
+                    throw new Error(`Unsupported challenge data type: ${typeof challengeData}`);
+                }
+                
+                // Create credential
+                const credential = await navigator.credentials.create({
+                    publicKey: {
+                        ...options.publicKeyCredentialCreationOptions,
+                        challenge: challenge,
+                        user: {
+                            ...options.publicKeyCredentialCreationOptions.user,
+                            id: (() => {
+                                const userId = options.publicKeyCredentialCreationOptions.user.id;
+                                if (typeof userId === 'string') {
+                                    return base64ToArrayBuffer(userId);
+                                } else if (userId instanceof Uint8Array) {
+                                    return userId.buffer;
+                                } else if (userId instanceof ArrayBuffer) {
+                                    return userId;
+                                } else {
+                                    throw new Error(`Unsupported user ID type: ${typeof userId}`);
+                                }
+                            })()
+                        }
+                    }
+                });
+
+                console.log('Credential created:', credential);
+
+                // Convert credential to base64url format
+                const clientDataJSON = base64ToBase64Url(arrayBufferToBase64(credential.response.clientDataJSON));
+                const attestationObject = base64ToBase64Url(arrayBufferToBase64(credential.response.attestationObject));
+
+                // Register credential with backend
+                const registerResponse = await makeRequest('/fido/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('accessToken')
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        displayName: displayName,
+                        requestId: options.requestId,
+                        rawId: base64ToBase64Url(arrayBufferToBase64(credential.rawId)),
+                        clientDataJSON: clientDataJSON,
+                        attestationObject: attestationObject
+                    })
+                });
+
+                if (!registerResponse.success) {
+                    throw new Error(registerResponse.message || 'Failed to register credential');
+                }
+
+                // Store credential ID (per username from registration options)
+                const credentialId = base64ToBase64Url(arrayBufferToBase64(credential.rawId));
+                
+                // Get userId from access token for credential storage
+                let userId = 'admin'; // fallback
+                
+                try {
+                    const accessToken = localStorage.getItem('accessToken');
+                    if (accessToken) {
+                        const payload = accessToken.split('.')[1];
+                        const decodedPayload = JSON.parse(atob(payload));
+                        console.log('🔍 Access Token payload for userId extraction in registration:', decodedPayload);
+                        
+                        // Extract userId from access token
+                        userId = decodedPayload.sub || decodedPayload.user_id || decodedPayload.userId;
+                        if (userId) {
+                            console.log('🔍 Using userId from Access Token for registration:', userId);
+                        } else {
+                            console.warn('No userId found in access token for registration, using fallback');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not extract userId from access token for registration:', e);
+                }
+                
+                // Store single credentialId
+                localStorage.setItem('credentialId', credentialId);
+                window.registeredCredentialId = credentialId;
+                console.log(`🔍 Stored single credentialId: ${credentialId}`);
+
+                showMessage('fido-status-message', '🎉 FIDO credential registered successfully!', 'success');
+                hideLoading();
+
+                // Update button visibility
+                initializeFidoSection();
+
+            } catch (error) {
+                console.error('FIDO registration failed:', error);
+                showMessage('fido-status-message', `Registration failed: ${error.message}`, 'error');
+                hideLoading();
+            }
+        }
+
+        // FIDO Deregistration function
+        async function deregisterFidoCredential() {
+            // Get current username to find the correct credential ID
+            let currentUsername = 'admin'; // fallback
+            
+            // Try to get userId from access token
+            try {
+                const accessToken = localStorage.getItem('accessToken');
+                if (accessToken) {
+                    const payload = accessToken.split('.')[1];
+                    const decodedPayload = JSON.parse(atob(payload));
+                    console.log('🔍 Access Token payload for deregister userId extraction:', decodedPayload);
+                    
+                    // Extract userId from access token
+                    const userId = decodedPayload.sub || decodedPayload.user_id || decodedPayload.userId;
+                    if (userId) {
+                        currentUsername = userId;
+                        console.log('🔍 Using userId from Access Token for deregister:', userId);
+                    } else {
+                        console.warn('No userId found in access token for deregister');
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not decode userId from Access Token for deregister:', e);
+            }
+            
+            // Get the credential ID for this specific userId (the one that was stored before)
+            const credentialId = localStorage.getItem(`credentialId${currentUsername}`);
+            console.log(`🔍 Looking for credential ID for userId ${currentUsername}:`, credentialId);
+            console.log(`🔍 Credential key: credentialId${currentUsername}`);
+            
+            // Debug: Show all credentialId keys in localStorage
+            console.log('🔍 All credentialId keys in localStorage:');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('credentialId')) {
+                    const userId = key.replace('credentialId', '');
+                    const credential = localStorage.getItem(key);
+                    console.log(`  ${key}: ${credential} (userId: ${userId})`);
+                }
+            }
+            
+            if (!credentialId) {
+                showMessage('fido-status-message', `No FIDO credential registered for user ${currentUsername}`, 'error');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to deregister your FIDO credential for user ${currentUsername}? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                showLoading(`Deregistering FIDO credential for user ${currentUsername}...`);
+                hideMessage('fido-status-message');
+
+                console.log(`🔍 Deregistering credential ID: ${credentialId} for username: ${currentUsername}`);
+
+                const response = await makeRequest(`/fido/deregister/${credentialId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('accessToken')
+                    }
+                });
+
+                if (!response.success) {
+                    throw new Error(response.message || 'Failed to deregister credential');
+                }
+
+                // Clear stored credential ID
+                console.log(`🔍 Deregister: Clearing single credentialId`);
+                localStorage.removeItem('credentialId');
+                window.registeredCredentialId = null;
+
+                showMessage('fido-status-message', `FIDO credential deregistered successfully for user ${currentUsername}!`, 'success');
+                hideLoading();
+
+                // Update button visibility
+                initializeFidoSection();
+
+            } catch (error) {
+                console.error('FIDO deregistration failed:', error);
+                showMessage('fido-status-message', `Deregistration failed: ${error.message}`, 'error');
+                hideLoading();
+            }
+        }
+
+        // Helper functions for base64 conversion
+        function base64urlToBase64(base64url) {
+            // Convert base64url to base64
+            let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            // Add padding if needed
+            while (base64.length % 4) {
+                base64 += '=';
+            }
+            return base64;
+        }
+
+        function base64ToArrayBuffer(base64) {
+            try {
+                console.log('🔍 Converting base64 to ArrayBuffer:', base64);
+                
+                // Check if it's base64url format (contains - or _)
+                if (base64.includes('-') || base64.includes('_')) {
+                    console.log('🔍 Detected base64url format, converting...');
+                    base64 = base64urlToBase64(base64);
+                    console.log('🔍 Converted to base64:', base64);
+                }
+                
+                const binaryString = atob(base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            } catch (error) {
+                console.error('❌ Error converting base64 to ArrayBuffer:', error);
+                console.error('❌ Input base64 string:', base64);
+                throw new Error(`Invalid base64 string: ${error.message}`);
+            }
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        function base64ToBase64Url(base64) {
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const tokenType = urlParams.get('token_type');
+        const expiresIn = urlParams.get('expires_in');
+        const scope = urlParams.get('scope');
+        const authType = urlParams.get('auth_type');
+        const code = urlParams.get('code');
+
+        // Handle different authentication types
+        if (authType === 'native' && code) {
+            // Update success message for Native Authentication
+            document.getElementById('success-title').textContent = '🎉 Native Authentication Successful!';
+            document.getElementById('success-description').textContent = 'You have successfully authenticated using Native Authentication with passkey/biometric.';
+        } else if (authType === 'password') {
+            // Update success message for Password Authentication
+            document.getElementById('success-title').textContent = '🎉 Password Login Successful!';
+            document.getElementById('success-description').textContent = 'You have successfully authenticated using your password credentials.';
+        }
+
+        // Decode and display user information from JWT
+        if (accessToken) {
+            try {
+                const tokenParts = accessToken.split('.');
+                if (tokenParts.length === 3) {
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    
+                    // Display user info
+                    document.getElementById('user-info').style.display = 'block';
+                    document.getElementById('username').textContent = payload.sub || 'Unknown';
+                    document.getElementById('org-name').textContent = payload.org_name || 'Unknown';
+                }
+            } catch (error) {
+                console.error('Error decoding JWT:', error);
+            }
+        }
+
+
+        
+        // Initialize FIDO section
+        function initializeFidoSection() {
+            const fidoSection = document.getElementById('fido-section');
+            const deregisterBtn = document.getElementById('fido-deregister-btn');
+            const registerBtn = document.getElementById('fido-register-btn');
+            
+            // Show FIDO section
+            fidoSection.style.display = 'block';
+            
+            // Get current username from URL parameters or localStorage scan
+            let currentUsername = 'admin'; // fallback
+            
+            // First, try to get username from URL parameters (from login)
+            const urlParams = new URLSearchParams(window.location.search);
+            const authType = urlParams.get('auth_type');
+            console.log('🔍 Auth type from URL:', authType);
+            
+            // If it's a password login, try to extract userId from access token
+            if (authType === 'password') {
+                try {
+                    const accessToken = localStorage.getItem('accessToken');
+                    if (accessToken) {
+                        const payload = accessToken.split('.')[1];
+                        const decodedPayload = JSON.parse(atob(payload));
+                        console.log('🔍 Access Token payload for userId extraction:', decodedPayload);
+                        
+                        // Extract userId from access token
+                        const userId = decodedPayload.sub || decodedPayload.user_id || decodedPayload.userId;
+                        if (userId) {
+                            currentUsername = userId;
+                            console.log('🔍 Using userId from Access Token:', userId);
+                        } else {
+                            console.warn('No userId found in access token, using fallback');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not decode userId from Access Token:', e);
+                }
+            }
+            
+            // If no username found from JWT, scan localStorage for any username-based credentials
+            if (currentUsername === 'admin') {
+                console.log('🔍 No username from JWT, scanning localStorage for username-based credentials...');
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('registeredCredentialId_') && !key.includes('-')) {
+                        // Found a username-based credential (not UUID)
+                        const username = key.replace('registeredCredentialId_', '');
+                        console.log(`🔍 Found username-based credential: ${key}`);
+                        currentUsername = username;
+                        break;
+                    }
+                }
+            }
+            
+            console.log('🔍 Final username for credential lookup:', currentUsername);
+            
+            // Log userId from access token for credential mapping
+            try {
+                const accessToken = localStorage.getItem('accessToken');
+                if (accessToken) {
+                    const payload = accessToken.split('.')[1];
+                    const decodedPayload = JSON.parse(atob(payload));
+                    console.log('🔍 Access Token payload on success page:', decodedPayload);
+                    
+                    // Check single credentialId
+                    console.log('🔍 Checking for single credentialId in localStorage...');
+                    const credentialId = localStorage.getItem('credentialId');
+                    console.log('🔍 Single credentialId:', credentialId);
+                } else {
+                    console.warn('No access token found in localStorage on success page');
+                }
+            } catch (e) {
+                console.warn('Could not decode userId from access token on success page:', e);
+            }
+            
+            // Check if credential is already registered (single credentialId)
+            const storedCredentialId = localStorage.getItem('credentialId');
+            console.log(`🔍 Checking single credentialId: ${storedCredentialId}`);
+            
+            if (storedCredentialId) {
+                // Show deregister button, hide register button
+                deregisterBtn.style.display = 'inline-block';
+                registerBtn.style.display = 'none';
+                console.log('🔍 Showing deregister button, hiding register button');
+            } else {
+                // Show register button, hide deregister button
+                registerBtn.style.display = 'inline-block';
+                deregisterBtn.style.display = 'none';
+                console.log('🔍 Showing register button, hiding deregister button');
+            }
+        }
+
+        // Logout function
+        window.logoutSuccess = function() {
+            console.log('🔍 Logout: Starting logout process...');
+            
+            // Clear stored tokens
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('tokenType');
+            localStorage.removeItem('expiresIn');
+            localStorage.removeItem('scope');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('idToken');
+            localStorage.removeItem('lastUsedCredentialId');
+            
+            // Keep credentialId for Native Authentication
+            console.log('🔍 Logout: Keeping credentialId for Native Authentication:', localStorage.getItem('credentialId'));
+            
+            // Clear any WebAuthn session data
+            if (navigator.credentials && navigator.credentials.preventSilentAccess) {
+                navigator.credentials.preventSilentAccess();
+                console.log('🔍 Logout: Cleared WebAuthn silent access');
+            }
+            
+            // Clear any WebAuthn session storage
+            if (sessionStorage) {
+                sessionStorage.clear();
+                console.log('🔍 Logout: Cleared session storage');
+            }
+            
+            console.log('🔍 Logout: Cleared authentication tokens, keeping credentialId');
+            
+            // Redirect to login page
+            window.location.href = '/';
+        }
+
+        
+        // Initialize FIDO section when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFidoSection();
+        });
+    </script>
+
+    <style>
+        .success-card {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .success-message {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-radius: 10px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .success-message h3 {
+            color: #155724;
+            margin: 1rem 0;
+        }
+        
+        .text-success {
+            color: #28a745 !important;
+        }
+        
+        .user-info {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .user-field {
+            margin: 1rem 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-field label {
+            font-weight: bold;
+            min-width: 120px;
+            margin-right: 1rem;
+        }
+        
+        .user-value {
+            font-family: 'Courier New', monospace;
+            background: #fff;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #ced4da;
+            flex: 1;
+        }
+        
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .fido-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .fido-info p {
+            margin-bottom: 1rem;
+            color: #6c757d;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        @media (max-width: 768px) {
+            .user-field {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .user-field label {
+                margin-bottom: 0.5rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</body>
+</html> 
