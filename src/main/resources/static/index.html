@@ -39,7 +39,7 @@
                         </button>
                         <div class="divider">OR</div>
                         <button class="btn btn-warning" onclick="startNativeAuth()">
-                            <i class="fas fa-mobile-alt"></i> Native Authentication (Passkey)
+                            <i class="fas fa-mobile-alt"></i> Biometric Authentication
                         </button>
                     </div>
                     <div id="login-status-message" class="status-message"></div>
@@ -49,12 +49,12 @@
             <!-- Native Authentication Card -->
             <div class="card" id="native-auth-card" style="display: none;">
                 <div class="card-header">
-                    <h2><i class="fas fa-mobile-alt"></i> Native Authentication</h2>
+                    <h2><i class="fas fa-mobile-alt"></i> Biometric Authentication</h2>
                 </div>
                 <div class="card-body">
-                    <p>Use native authentication flow with passkey/biometric authentication.</p>
+                    <p>Use biometric authentication with fingerprint or face recognition.</p>
                     <button class="btn btn-warning" onclick="startNativeAuth()" id="native-auth-btn">
-                        <i class="fas fa-fingerprint"></i> Start Native Authentication
+                        <i class="fas fa-fingerprint"></i> Start Biometric Authentication
                     </button>
                     <div id="native-auth-status-message" class="status-message"></div>
                 </div>

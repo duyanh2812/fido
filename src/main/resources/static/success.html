@@ -11,7 +11,7 @@
     <div class="container">
         <header class="header">
             <h1><i class="fas fa-check-circle text-success"></i> Login Success!</h1>
-            <p>Passkey authentication completed successfully</p>
+            <p>Biometric authentication completed successfully</p>
         </header>
 
         <div class="main-content">
@@ -55,6 +55,9 @@
                                 <button onclick="deregisterFidoCredential()" class="btn btn-danger" id="fido-deregister-btn" style="display: none;">
                                     <i class="fas fa-trash"></i> Deregister FIDO Credential
                                 </button>
+                                <button onclick="startBiometricAuth()" class="btn btn-warning" id="biometric-auth-btn" style="display: none;">
+                                    <i class="fas fa-fingerprint"></i> Biometric Authenticate
+                                </button>
                             </div>
                             <div id="fido-status-message" class="status-message"></div>
                         </div>
@@ -72,6 +75,9 @@
     </div>
 
     <script>
+        // Configuration
+        const WSO2_CLIENT_ID = 'jDsWosgzDKXGRUPHXhLnlm1wQQ8a';
+        
         // Helper functions from app.js
         function makeRequest(url, options = {}) {
             return fetch(url, options)
@@ -373,9 +379,14 @@
 
         // Handle different authentication types
         if (authType === 'native' && code) {
-            // Update success message for Native Authentication
-            document.getElementById('success-title').textContent = '🎉 Native Authentication Successful!';
-            document.getElementById('success-description').textContent = 'You have successfully authenticated using Native Authentication with passkey/biometric.';
+            // Update success message for Biometric Authentication
+            document.getElementById('success-title').textContent = '🎉 Biometric Authentication Successful!';
+            document.getElementById('success-description').textContent = 'You have successfully authenticated using biometric authentication with fingerprint or face recognition.';
+            
+            // Show success alert for Biometric Authentication
+            setTimeout(() => {
+                alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
+            }, 500);
         } else if (authType === 'password') {
             // Update success message for Password Authentication
             document.getElementById('success-title').textContent = '🎉 Password Login Successful!';
@@ -482,15 +493,497 @@
             console.log(`🔍 Checking single credentialId: ${storedCredentialId}`);
             
             if (storedCredentialId) {
-                // Show deregister button, hide register button
+                // Show deregister button and biometric auth button, hide register button
                 deregisterBtn.style.display = 'inline-block';
+                document.getElementById('biometric-auth-btn').style.display = 'inline-block';
                 registerBtn.style.display = 'none';
-                console.log('🔍 Showing deregister button, hiding register button');
+                console.log('🔍 Showing deregister button and biometric auth button, hiding register button');
             } else {
-                // Show register button, hide deregister button
+                // Show register button, hide deregister button and biometric auth button
                 registerBtn.style.display = 'inline-block';
                 deregisterBtn.style.display = 'none';
-                console.log('🔍 Showing register button, hiding deregister button');
+                document.getElementById('biometric-auth-btn').style.display = 'none';
+                console.log('🔍 Showing register button, hiding deregister button and biometric auth button');
+            }
+        }
+
+        // Biometric Authentication function - copied from app.js
+        window.startBiometricAuth = async function() {
+            try {
+                // Clear any existing WebAuthn session before starting new authentication
+                console.log('🔍 Clearing WebAuthn session before starting Biometric Authentication...');
+                if (navigator.credentials && navigator.credentials.preventSilentAccess) {
+                    navigator.credentials.preventSilentAccess();
+                    console.log('🔍 Cleared WebAuthn silent access');
+                }
+                
+                // Clear any WebAuthn session storage
+                if (sessionStorage) {
+                    sessionStorage.clear();
+                    console.log('🔍 Cleared session storage');
+                }
+                
+                showMessage('fido-status-message', 'Starting biometric authentication...', 'info');
+
+                // Step 1: Initialize biometric authentication flow
+                showMessage('fido-status-message', 'Initializing authentication flow...', 'info');
+                const initResponse = await makeRequest('/native-auth/init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        clientId: WSO2_CLIENT_ID,
+                        redirectUri: window.location.origin + '/oauth2/code/wso2',
+                        scope: 'openid profile',
+                        responseType: 'code',
+                        responseMode: 'direct'
+                    })
+                });
+
+                if (!initResponse.success) {
+                    throw new Error(initResponse.message || 'Failed to initialize biometric authentication flow');
+                }
+
+                console.log('🔍 Biometric authentication flow initialized');
+                showMessage('fido-status-message', 'Authentication flow initialized', 'success');
+
+                // Step 2: Check if biometric option is available
+                const flowData = initResponse.data;
+                console.log('🔍 Flow data:', flowData);
+                
+                let biometricOption = null;
+                if (flowData.nextStep && flowData.nextStep.authenticators) {
+                    biometricOption = flowData.nextStep.authenticators.find(auth => 
+                        auth.authenticator === 'Passkey' || 
+                        auth.authenticatorId === 'RklET0F1dGhlbnRpY2F0b3I6TE9DQUw' ||
+                        auth.authenticatorId === 'FIDOAuthenticator:LOCAL' ||
+                        auth.authenticatorId === 'FIDOAuthenticator'
+                    );
+                }
+
+                if (biometricOption) {
+                    console.log('🔍 Biometric option found, getting challenge...');
+                    showMessage('fido-status-message', 'Biometric option found, getting challenge...', 'info');
+                    await getPasskeyChallenge(flowData.flowId, biometricOption.authenticatorId);
+                } else {
+                    console.log('🔍 No biometric option found in authenticators');
+                    console.log('🔍 Available authenticators:', flowData.nextStep?.authenticators);
+                    
+                    // Check if there are any authenticators at all
+                    if (!flowData.nextStep || !flowData.nextStep.authenticators || flowData.nextStep.authenticators.length === 0) {
+                        console.log('🔍 No authenticators available, creating mock authenticator for WebAuthn...');
+                        
+                        // Create a mock authenticator to allow WebAuthn to proceed
+                        const mockAuthenticator = {
+                            authenticatorId: 'MANUAL_FIDO',
+                            authenticator: 'Manual FIDO',
+                            metadata: {
+                                additionalData: {
+                                    challengeData: btoa(JSON.stringify({
+                                        publicKeyCredentialRequestOptions: {
+                                            challenge: 'mock-challenge',
+                                            allowCredentials: [{
+                                                id: 'mock-credential-id',
+                                                type: 'public-key'
+                                            }]
+                                        },
+                                        requestId: 'manual-request-id'
+                                    }))
+                                }
+                            }
+                        };
+                        
+                        console.log('🔍 Created mock authenticator for WebAuthn');
+                        showMessage('fido-status-message', 'Proceeding with WebAuthn authentication...', 'info');
+                        await getPasskeyChallenge(flowData.flowId, mockAuthenticator.authenticatorId);
+                    } else {
+                        throw new Error('Biometric option not available');
+                    }
+                }
+
+            } catch (error) {
+                console.error('Biometric authentication failed:', error);
+                showMessage('fido-status-message', `Biometric authentication failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Get passkey challenge - copied from app.js
+        async function getPasskeyChallenge(flowId, authenticatorId) {
+            try {
+                // Check if this is a manual FIDO request
+                if (authenticatorId === 'MANUAL_FIDO') {
+                    console.log('🔍 Manual FIDO request detected, skipping challenge call');
+                    showMessage('fido-status-message', 'Using manual credential ID, performing WebAuthn authentication...', 'info');
+                    
+                    // Create mock challenge data for manual FIDO
+                    const mockChallengeData = {
+                        nextStep: {
+                            authenticators: [{
+                                authenticatorId: 'MANUAL_FIDO',
+                                metadata: {
+                                    additionalData: {
+                                        challengeData: btoa(JSON.stringify({
+                                            publicKeyCredentialRequestOptions: {
+                                                challenge: 'mock-challenge',
+                                                allowCredentials: [{
+                                                    id: 'manual-credential-id',
+                                                    type: 'public-key'
+                                                }]
+                                            },
+                                            requestId: 'manual-request-id'
+                                        }))
+                                    }
+                                }
+                            }]
+                        }
+                    };
+                    
+                    // Step 3: Perform WebAuthn authentication with mock data
+                    await performWebAuthnNativeAuth(mockChallengeData, flowId, authenticatorId);
+                } else {
+                    const challengeResponse = await makeRequest('/native-auth/challenge', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            flowId: flowId,
+                            authenticatorId: authenticatorId
+                        })
+                    });
+
+                    if (!challengeResponse.success) {
+                        throw new Error(challengeResponse.message || 'Failed to get passkey challenge');
+                    }
+
+                    showMessage('fido-status-message', 'Challenge received, performing WebAuthn authentication...', 'info');
+
+                    // Step 3: Perform WebAuthn authentication
+                    await performWebAuthnNativeAuth(challengeResponse.data, flowId, authenticatorId);
+                }
+
+            } catch (error) {
+                console.error('Error getting passkey challenge:', error);
+                showMessage('fido-status-message', `Failed to get challenge: ${error.message}`, 'error');
+            }
+        }
+        
+        // Perform WebAuthn native authentication - copied from app.js
+        async function performWebAuthnNativeAuth(challengeData, flowId, authenticatorId) {
+            try {
+                // Clear any existing WebAuthn session before starting new authentication
+                console.log('🔍 Clearing WebAuthn session before authentication...');
+                if (navigator.credentials && navigator.credentials.preventSilentAccess) {
+                    navigator.credentials.preventSilentAccess();
+                    console.log('🔍 Cleared WebAuthn silent access');
+                }
+                
+                // Clear any WebAuthn session storage
+                if (sessionStorage) {
+                    sessionStorage.clear();
+                    console.log('🔍 Cleared session storage');
+                }
+                
+                // Extract challenge data from the response
+                let challengeOptions;
+                let requestId;
+                let credentialId = null; // Initialize to null to avoid undefined errors
+                if (challengeData.nextStep && challengeData.nextStep.authenticators && challengeData.nextStep.authenticators[0]) {
+                    const authenticator = challengeData.nextStep.authenticators[0];
+                    if (authenticator.metadata && authenticator.metadata.additionalData && authenticator.metadata.additionalData.challengeData) {
+                        // Decode the base64 challenge data
+                        const decodedChallenge = atob(authenticator.metadata.additionalData.challengeData);
+                        console.log('🔍 Decoded challenge data:', decodedChallenge);
+                        challengeOptions = JSON.parse(decodedChallenge);
+                        requestId = challengeOptions.requestId;
+                        
+                        // Get single credential ID
+                        credentialId = localStorage.getItem('credentialId');
+                        console.log(`🔍 Looking for single credential ID:`, credentialId);
+                        
+                        // If no credential found, show popup
+                        if (!credentialId) {
+                            console.log('🔍 No credential found in localStorage, showing popup...');
+                            const userCredentialId = prompt('No credential ID found in localStorage. Please enter your credential ID:');
+                            if (!userCredentialId || userCredentialId.trim() === '') {
+                                throw new Error('Credential ID is required for authentication.');
+                            }
+                            credentialId = userCredentialId.trim();
+                            console.log('🔍 Using manually entered credential ID:', credentialId);
+                        }
+                        
+                        console.log('🔍 Final credential ID for authentication:', credentialId);
+                    }
+                }
+                
+                if (!challengeOptions) {
+                    throw new Error('No challenge data found in response');
+                }
+
+                // Convert challenge data to WebAuthn format
+                let publicKeyCredentialRequestOptions;
+                
+                if (authenticatorId === 'MANUAL_FIDO') {
+                    // For manual FIDO, check localStorage for credentialId first
+                    console.log('🔍 Creating challenge data for manual FIDO WebAuthn...');
+                    const mockChallenge = 'mock-challenge-for-webauthn';
+                    
+                    // Check localStorage for single credentialId
+                    const storedCredentialId = localStorage.getItem('credentialId');
+                    let realCredentialId;
+                    
+                    if (storedCredentialId) {
+                        realCredentialId = storedCredentialId;
+                        console.log('🔍 Using stored credentialId from localStorage:', realCredentialId);
+                    } else {
+                        console.log('🔍 No credentialId found in localStorage, showing popup...');
+                        const userCredentialId = prompt('No credential ID found in localStorage. Please enter your credential ID for WebAuthn authentication:');
+                        if (!userCredentialId || userCredentialId.trim() === '') {
+                            throw new Error('Credential ID is required for WebAuthn authentication.');
+                        }
+                        realCredentialId = userCredentialId.trim();
+                        console.log('🔍 Using manually entered credential ID for WebAuthn:', realCredentialId);
+                    }
+                    
+                    // Validate credentialId format
+                    if (!realCredentialId || realCredentialId.length < 10) {
+                        throw new Error('Invalid credential ID format. Please ensure you have registered a passkey first.');
+                    }
+                    
+                    // Try to convert to ArrayBuffer to validate format
+                    const testArrayBuffer = base64ToArrayBuffer(realCredentialId);
+                    console.log('🔍 Credential ID format is valid');
+                    
+                    publicKeyCredentialRequestOptions = {
+                        challenge: base64ToArrayBuffer(btoa(mockChallenge)),
+                        allowCredentials: [{
+                            id: testArrayBuffer,
+                            type: 'public-key',
+                            transports: ['internal']
+                        }],
+                        timeout: 60000,
+                        rpId: 'localhost',
+                        userVerification: 'required'
+                    };
+                    
+                    console.log('🔍 Created manual FIDO WebAuthn options with credentialId:', realCredentialId);
+                } else {
+                    // For normal FIDO, use real challenge data
+                    publicKeyCredentialRequestOptions = {
+                        challenge: base64ToArrayBuffer(challengeOptions.publicKeyCredentialRequestOptions.challenge),
+                        allowCredentials: challengeOptions.publicKeyCredentialRequestOptions.allowCredentials ? 
+                            challengeOptions.publicKeyCredentialRequestOptions.allowCredentials.map(cred => ({
+                                id: base64ToArrayBuffer(cred.id),
+                                type: cred.type,
+                                transports: cred.transports
+                            })) : [],
+                        timeout: 60000,
+                        rpId: 'localhost',
+                        userVerification: 'required'
+                    };
+                    
+                    // Update allowCredentials with the found credentialId
+                    if (credentialId) {
+                        publicKeyCredentialRequestOptions.allowCredentials = [{
+                            id: base64ToArrayBuffer(credentialId),
+                            type: 'public-key',
+                            transports: ['internal', 'hybrid']
+                        }];
+                        console.log('🔍 Updated allowCredentials with credentialId:', credentialId);
+                    }
+                }
+                
+                console.log('🔍 Final WebAuthn options:', publicKeyCredentialRequestOptions);
+                console.log('🔍 Challenge type:', typeof publicKeyCredentialRequestOptions.challenge);
+                console.log('🔍 Challenge value:', publicKeyCredentialRequestOptions.challenge);
+                console.log('🔍 AllowCredentials:', publicKeyCredentialRequestOptions.allowCredentials);
+                
+                // Perform WebAuthn authentication
+                showMessage('fido-status-message', 'Please scan your biometric (fingerprint/face)...', 'info');
+                
+                const credential = await navigator.credentials.get({
+                    publicKey: publicKeyCredentialRequestOptions
+                });
+                
+                if (!credential) {
+                    throw new Error('WebAuthn authentication was cancelled or failed');
+                }
+                
+                console.log('🔍 WebAuthn credential received:', credential);
+                
+                console.log('🔍 WebAuthn authentication successful');
+                showMessage('fido-status-message', 'WebAuthn authentication successful, verifying...', 'info');
+                
+                // Prepare credentials for verification
+                const credentials = {
+                    clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                    authenticatorData: arrayBufferToBase64url(credential.response.authenticatorData),
+                    signature: arrayBufferToBase64url(credential.response.signature),
+                    userHandle: credential.response.userHandle ? arrayBufferToBase64url(credential.response.userHandle) : null,
+                    credentialId: arrayBufferToBase64url(credential.rawId)
+                };
+                
+                // Verify biometric authentication
+                await verifyPasskeyAuth(credentials, flowId, authenticatorId, requestId);
+                
+            } catch (error) {
+                console.error('WebAuthn native authentication failed:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                
+                // Check if it's a WebAuthn specific error
+                if (error.name === 'NotAllowedError') {
+                    showMessage('fido-status-message', 'Biometric authentication was cancelled by user', 'warning');
+                } else if (error.name === 'NotSupportedError') {
+                    showMessage('fido-status-message', 'Biometric authentication is not supported on this device', 'error');
+                } else if (error.name === 'SecurityError') {
+                    showMessage('fido-status-message', 'Security error during biometric authentication', 'error');
+                } else if (error.message.includes('challenge')) {
+                    showMessage('fido-status-message', 'Invalid challenge format. Please try again.', 'error');
+                } else {
+                    showMessage('fido-status-message', `Biometric authentication failed: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        
+        // Verify passkey authentication - copied from app.js
+        async function verifyPasskeyAuth(credentials, flowId, authenticatorId, requestId) {
+            try {
+                console.log('🔍 VERIFY PASSKEY AUTH - Starting...');
+                
+                // Check localStorage for single credentialId first
+                console.log('🔍 Checking localStorage for single credentialId...');
+                const storedCredentialId = localStorage.getItem('credentialId');
+                let credentialId;
+                
+                if (storedCredentialId) {
+                    credentialId = storedCredentialId;
+                    console.log('🔍 Using stored credentialId from localStorage:', credentialId);
+                } else {
+                    console.log('🔍 No credentialId found in localStorage, showing popup...');
+                    const userCredentialId = prompt('No credential ID found in localStorage. Please enter your credential ID for authentication:');
+                    if (!userCredentialId || userCredentialId.trim() === '') {
+                        throw new Error('Credential ID is required for authentication.');
+                    }
+                    credentialId = userCredentialId.trim();
+                    console.log('🔍 Using manually entered credentialId:', credentialId);
+                }
+                
+                // Update credentials with the manually entered credentialId
+                credentials.credentialId = credentialId;
+                
+                console.log('🔍 Sending requestId to backend:', requestId);
+                console.log('🔍 Credentials object:', credentials);
+                console.log('🔍 CredentialId in credentials:', credentials.credentialId);
+                
+                const requestBody = {
+                    flowId: flowId,
+                    authenticatorId: authenticatorId,
+                    credentials: credentials,
+                    requestId: requestId
+                };
+                
+                console.log('🔍 Full request body:', requestBody);
+                console.log('🔍 About to make API call to: /native-auth/verify');
+                
+                const verifyResponse = await makeRequest('/native-auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('🔍 Raw verify response:', verifyResponse);
+                console.log('🔍 HTTP 200 response received - treating as success!');
+                console.log('✅ SUCCESS FLOW - No errors, proceeding to success page');
+                console.log('🔍 SERVER RESPONSE SUCCESS - This is a valid success from server');
+                
+                // Store credential ID for success page (if available)
+                if (credentialId && credentialId !== '') {
+                    localStorage.setItem('lastUsedCredentialId', credentialId);
+                    console.log('🔍 Stored credentialId in localStorage');
+                } else {
+                    console.log('🔍 No credentialId to store (using empty string)');
+                }
+                
+                showMessage('fido-status-message', '🎉 Biometric authentication successful!', 'success');
+                
+                // Show success alert
+                setTimeout(() => {
+                    alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ ERROR CAUGHT - Analyzing error type:');
+                console.error('🔍 Error type:', typeof error);
+                console.error('🔍 Error message:', error.message);
+                console.error('🔍 Error stack:', error.stack);
+                console.error('🔍 Full error object:', error);
+                
+                // Check if this is a server error (HTTP error) or client logic error
+                const isServerError = error.message && error.message.includes('HTTP error');
+                const isCredentialIdError = error.message && error.message.includes('credentialId');
+                
+                console.log('🔍 Is server error:', isServerError);
+                console.log('🔍 Is credentialId error:', isCredentialIdError);
+                
+                if (isServerError) {
+                    console.error('🔍 SERVER ERROR - This is a valid server error, should show error message');
+                    showMessage('fido-status-message', `Server error: ${error.message}`, 'error');
+                } else if (isCredentialIdError) {
+                    console.error('🔍 CLIENT LOGIC ERROR - This is a client logic error, should NOT show error message');
+                    showMessage('fido-status-message', 'Client logic error, please try again', 'warning');
+                } else {
+                    console.error('🔍 UNKNOWN ERROR TYPE:', error.message);
+                    showMessage('fido-status-message', `Verification failed: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Helper function to convert ArrayBuffer to base64url
+        function arrayBufferToBase64url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        
+        // Helper function to convert base64url to ArrayBuffer
+        function base64urlToArrayBuffer(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        // Helper function to convert base64 to ArrayBuffer - copied from app.js
+        function base64ToArrayBuffer(base64) {
+            // Convert base64url to base64
+            const base64Standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+            
+            // Add padding if needed
+            const padded = base64Standard + '='.repeat((4 - base64Standard.length % 4) % 4);
+            
+            try {
+                const binaryString = atob(padded);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            } catch (error) {
+                console.error('Error converting base64 to ArrayBuffer:', error);
+                console.error('Original base64:', base64);
+                console.error('Standardized base64:', padded);
+                throw error;
             }
         }
 
@@ -507,8 +1000,8 @@
             localStorage.removeItem('idToken');
             localStorage.removeItem('lastUsedCredentialId');
             
-            // Keep credentialId for Native Authentication
-            console.log('🔍 Logout: Keeping credentialId for Native Authentication:', localStorage.getItem('credentialId'));
+            // Keep credentialId for Biometric Authentication
+            console.log('🔍 Logout: Keeping credentialId for Biometric Authentication:', localStorage.getItem('credentialId'));
             
             // Clear any WebAuthn session data
             if (navigator.credentials && navigator.credentials.preventSilentAccess) {

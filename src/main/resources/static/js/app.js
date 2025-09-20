@@ -810,10 +810,10 @@ async function startNativeAuth() {
             console.log('🔍 Cleared session storage');
         }
         
-        showLoading('Starting native authentication...');
+        showLoading('Starting biometric authentication...');
         hideMessage('native-auth-status-message');
 
-        // Step 1: Initialize native authentication flow
+        // Step 1: Initialize biometric authentication flow
         showMessage('native-auth-status-message', 'Initializing authentication flow...', 'info');
 
         const initResponse = await makeRequest(NATIVE_AUTH_ENDPOINTS.init, {
@@ -831,12 +831,12 @@ async function startNativeAuth() {
         });
 
         if (!initResponse.success) {
-            throw new Error(initResponse.message || 'Failed to initialize native authentication');
+            throw new Error(initResponse.message || 'Failed to initialize biometric authentication');
         }
 
         showMessage('native-auth-status-message', 'Authentication flow initialized', 'success');
 
-        // Step 2: Check if passkey option is available
+        // Step 2: Check if biometric option is available
         const flowData = initResponse.data;
         console.log('🔍 Full init response:', initResponse);
         console.log('🔍 Flow data:', flowData);
@@ -844,10 +844,10 @@ async function startNativeAuth() {
         console.log('🔍 Step type:', flowData.nextStep?.stepType);
         console.log('🔍 Authenticators:', flowData.nextStep?.authenticators);
         
-        // Try to find passkey option regardless of step type
-        let passkeyOption = null;
+        // Try to find biometric option regardless of step type
+        let biometricOption = null;
         if (flowData.nextStep && flowData.nextStep.authenticators) {
-            passkeyOption = flowData.nextStep.authenticators.find(auth => 
+            biometricOption = flowData.nextStep.authenticators.find(auth => 
                 auth.authenticator === 'Passkey' || 
                 auth.authenticatorId === 'RklET0F1dGhlbnRpY2F0b3I6TE9DQUw' ||
                 auth.authenticatorId === 'FIDOAuthenticator:LOCAL' ||
@@ -855,13 +855,13 @@ async function startNativeAuth() {
             );
         }
         
-        console.log('🔍 Passkey option found:', passkeyOption);
+        console.log('🔍 Biometric option found:', biometricOption);
         
-        if (passkeyOption) {
-            showMessage('native-auth-status-message', 'Passkey option found, getting challenge...', 'info');
-            await getPasskeyChallenge(flowData.flowId, passkeyOption.authenticatorId);
+        if (biometricOption) {
+            showMessage('native-auth-status-message', 'Biometric option found, getting challenge...', 'info');
+            await getPasskeyChallenge(flowData.flowId, biometricOption.authenticatorId);
         } else {
-            console.log('🔍 No passkey option found in authenticators');
+            console.log('🔍 No biometric option found in authenticators');
             console.log('🔍 Available authenticators:', flowData.nextStep?.authenticators);
             
             // Check if there are any authenticators at all
@@ -892,13 +892,13 @@ async function startNativeAuth() {
                 showMessage('native-auth-status-message', 'Proceeding with WebAuthn authentication...', 'info');
                 await getPasskeyChallenge(flowData.flowId, mockAuthenticator.authenticatorId);
             } else {
-                throw new Error('Passkey option not available');
+                throw new Error('Biometric option not available');
             }
         }
 
     } catch (error) {
-        console.error('Native authentication failed:', error);
-        showMessage('native-auth-status-message', `Native authentication failed: ${error.message}`, 'error');
+        console.error('Biometric authentication failed:', error);
+        showMessage('native-auth-status-message', `Biometric authentication failed: ${error.message}`, 'error');
         hideLoading();
     }
 }
@@ -1332,14 +1332,14 @@ async function verifyPasskeyAuth(flowId, authenticatorId, credentials, requestId
             console.log('🔍 No credentialId to store (using empty string)');
         }
         
-        // Redirect to Native Authentication success page (HTTP 200 = success)
+        // Redirect to shared success page with Native Authentication type
         console.log('🔍 WOULD REDIRECT TO SUCCESS PAGE...');
-        console.log('🔍 Success URL:', `/native-auth-success.html?credentialId=${encodeURIComponent(credentialId || '')}`);
+        console.log('🔍 Success URL:', `/success.html?auth_type=native&credentialId=${encodeURIComponent(credentialId || '')}`);
         console.log('🔍 credentialId for redirect:', credentialId);
         console.log('🔍 encoded credentialId:', encodeURIComponent(credentialId || ''));
         
-        window.location.href = `/native-auth-success.html?credentialId=${encodeURIComponent(credentialId || '')}`;
-        console.log('🔍 SUCCESS: Redirecting to success page...');
+        window.location.href = `/success.html?auth_type=native&credentialId=${encodeURIComponent(credentialId || '')}`;
+        console.log('🔍 SUCCESS: Redirecting to shared success page...');
 
     } catch (error) {
         console.error('❌ ERROR CAUGHT - Analyzing error type:');
