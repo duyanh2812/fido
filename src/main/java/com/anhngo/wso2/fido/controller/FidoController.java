@@ -1,11 +1,9 @@
 package com.anhngo.wso2.fido.controller;
 
-import com.anhngo.wso2.fido.config.Wso2Config;
 import com.anhngo.wso2.fido.dto.*;
 import com.anhngo.wso2.fido.service.FidoService;
 import com.anhngo.wso2.fido.service.Wso2Service;
 import com.fasterxml.jackson.databind.JsonNode;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,17 +22,15 @@ public class FidoController {
     private static final Logger logger = LoggerFactory.getLogger(FidoController.class);
     
     private final FidoService fidoService;
-    private final Wso2Config wso2Config;
     private final Wso2Service wso2Service;
     
-    public FidoController(FidoService fidoService, Wso2Config wso2Config, Wso2Service wso2Service) {
+    public FidoController(FidoService fidoService, Wso2Service wso2Service) {
         this.fidoService = fidoService;
-        this.wso2Config = wso2Config;
         this.wso2Service = wso2Service;
     }
     
     @PostMapping("/registration-options")
-    public ResponseEntity<ApiResponse<JsonNode>> getRegistrationOptions(
+    public ResponseEntity<JsonNode> getRegistrationOptions(
             @Valid @RequestBody FidoRegistrationOptionsRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "Content-Type", required = false) String contentType) {
@@ -52,13 +48,10 @@ public class FidoController {
             }
             
             JsonNode options = fidoService.getRegistrationOptions(request, userAccessToken);
-            return ResponseEntity.ok(
-                ApiResponse.success("Registration options retrieved successfully", options)
-            );
+            return ResponseEntity.ok(options);
         } catch (Exception error) {
             logger.error("Error getting registration options", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Failed to get registration options: " + error.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
     

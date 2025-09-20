@@ -151,11 +151,11 @@
                     })
                 });
 
-                if (!response.success) {
-                    throw new Error(response.message || 'Failed to get registration options');
+                if (!response) {
+                    throw new Error('Failed to get registration options');
                 }
 
-                const options = response.data;
+                const options = response;
                 console.log('Registration options:', options);
                 console.log('🔍 Challenge data:', options.publicKeyCredentialCreationOptions.challenge);
                 console.log('🔍 Challenge type:', typeof options.publicKeyCredentialCreationOptions.challenge);
@@ -541,15 +541,15 @@
                     })
                 });
 
-                if (!initResponse.success) {
-                    throw new Error(initResponse.message || 'Failed to initialize biometric authentication flow');
+                if (!initResponse) {
+                    throw new Error('Failed to initialize biometric authentication flow');
                 }
 
                 console.log('🔍 Biometric authentication flow initialized');
                 showMessage('fido-status-message', 'Authentication flow initialized', 'success');
 
-                // Step 2: Use challenge data directly from init response
-                const challengeData = initResponse.data;
+                // Step 2: Use challenge data directly from init response (now raw payload)
+                const challengeData = initResponse;
                 console.log('🔍 Full init response (challenge data):', initResponse);
                 console.log('🔍 Challenge data:', challengeData);
                 console.log('🔍 Flow ID:', challengeData.flowId);

@@ -30,20 +30,17 @@ public class NativeAuthController {
      * Initialize native authentication flow
      */
     @PostMapping("/init")
-    public ResponseEntity<ApiResponse<JsonNode>> initNativeAuth(
+    public ResponseEntity<JsonNode> initNativeAuth(
             @Valid @RequestBody NativeAuthInitRequest request) {
         
         logger.info("Received native auth init request for client: {}", request.getClientId());
         
         try {
             JsonNode result = nativeAuthService.initNativeAuth(request);
-            return ResponseEntity.ok(
-                ApiResponse.success("Native authentication flow initialized successfully", result)
-            );
+            return ResponseEntity.ok(result);
         } catch (Exception error) {
             logger.error("Error initializing native authentication flow", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Failed to initialize native authentication flow: " + error.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
     
@@ -75,20 +72,17 @@ public class NativeAuthController {
      * Verify passkey authentication credentials
      */
     @PostMapping("/verify")
-    public ResponseEntity<ApiResponse<JsonNode>> verifyPasskeyAuth(
+    public ResponseEntity<JsonNode> verifyPasskeyAuth(
             @Valid @RequestBody NativeAuthVerifyRequest request) {
         
         logger.info("Received passkey verify request for flow: {}", request.getFlowId());
         
         try {
             JsonNode result = nativeAuthService.verifyPasskeyAuth(request);
-            return ResponseEntity.ok(
-                ApiResponse.success("Passkey authentication verified successfully", result)
-            );
+            return ResponseEntity.ok(result);
         } catch (Exception error) {
             logger.error("Error verifying passkey authentication", error);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Failed to verify passkey authentication: " + error.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
     

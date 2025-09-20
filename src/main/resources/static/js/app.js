@@ -508,8 +508,8 @@ async function startFidoRegistration() {
             })
         });
 
-        if (!optionsResponse.success) {
-            throw new Error(optionsResponse.message || 'Failed to get FIDO registration options');
+        if (!optionsResponse) {
+            throw new Error('Failed to get FIDO registration options');
         }
 
         showMessage('fido-status-message', 'FIDO registration options received', 'success');
@@ -517,8 +517,8 @@ async function startFidoRegistration() {
         // Step 2: Perform WebAuthn registration with biometric
         showMessage('fido-status-message', 'Starting WebAuthn credential creation...', 'info');
 
-        // Use real WebAuthn API to create credentials
-        await performWebAuthnRegistration(optionsResponse.data);
+        // Use real WebAuthn API to create credentials (now raw payload)
+        await performWebAuthnRegistration(optionsResponse);
 
     } catch (error) {
         console.error('FIDO registration failed:', error);
@@ -830,14 +830,14 @@ async function startNativeAuth() {
             })
         });
 
-        if (!initResponse.success) {
-            throw new Error(initResponse.message || 'Failed to initialize biometric authentication');
+        if (!initResponse) {
+            throw new Error('Failed to initialize biometric authentication');
         }
 
         showMessage('native-auth-status-message', 'Authentication flow initialized', 'success');
 
-        // Step 2: Use challenge data directly from init response
-        const challengeData = initResponse.data;
+        // Step 2: Use challenge data directly from init response (now raw payload)
+        const challengeData = initResponse;
         console.log('🔍 Full init response (challenge data):', initResponse);
         console.log('🔍 Challenge data:', challengeData);
         console.log('🔍 Flow ID:', challengeData.flowId);
