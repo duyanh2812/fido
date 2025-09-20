@@ -836,63 +836,92 @@ async function startNativeAuth() {
 
         showMessage('native-auth-status-message', 'Authentication flow initialized', 'success');
 
-        // Step 2: Check if biometric option is available
-        const flowData = initResponse.data;
-        console.log('🔍 Full init response:', initResponse);
-        console.log('🔍 Flow data:', flowData);
-        console.log('🔍 Next step:', flowData.nextStep);
-        console.log('🔍 Step type:', flowData.nextStep?.stepType);
-        console.log('🔍 Authenticators:', flowData.nextStep?.authenticators);
+        // Step 2: Use challenge data directly from init response
+        const challengeData = initResponse.data;
+        console.log('🔍 Full init response (challenge data):', initResponse);
+        console.log('🔍 Challenge data:', challengeData);
+        console.log('🔍 Flow ID:', challengeData.flowId);
+        console.log('🔍 Next step:', challengeData.nextStep);
+        console.log('🔍 Authenticators:', challengeData.nextStep?.authenticators);
         
-        // Try to find biometric option regardless of step type
-        let biometricOption = null;
-        if (flowData.nextStep && flowData.nextStep.authenticators) {
-            biometricOption = flowData.nextStep.authenticators.find(auth => 
+        // Check if this is challenge data (has nextStep with authenticators)
+        if (challengeData.nextStep && challengeData.nextStep.authenticators) {
+            console.log('🔍 Challenge data received, proceeding with WebAuthn...');
+            showMessage('native-auth-status-message', 'Challenge received, proceeding with biometric authentication...', 'info');
+            
+            // Find biometric authenticator
+            const biometricOption = challengeData.nextStep.authenticators.find(auth => 
                 auth.authenticator === 'Passkey' || 
                 auth.authenticatorId === 'RklET0F1dGhlbnRpY2F0b3I6TE9DQUw' ||
                 auth.authenticatorId === 'FIDOAuthenticator:LOCAL' ||
                 auth.authenticatorId === 'FIDOAuthenticator'
             );
-        }
-        
-        console.log('🔍 Biometric option found:', biometricOption);
-        
-        if (biometricOption) {
-            showMessage('native-auth-status-message', 'Biometric option found, getting challenge...', 'info');
-            await getPasskeyChallenge(flowData.flowId, biometricOption.authenticatorId);
-        } else {
-            console.log('🔍 No biometric option found in authenticators');
-            console.log('🔍 Available authenticators:', flowData.nextStep?.authenticators);
             
-            // Check if there are any authenticators at all
-            if (!flowData.nextStep || !flowData.nextStep.authenticators || flowData.nextStep.authenticators.length === 0) {
-                console.log('🔍 No authenticators available, creating mock authenticator for WebAuthn...');
-                
-                // Create a mock authenticator to allow WebAuthn to proceed
-                const mockAuthenticator = {
-                    authenticatorId: 'MANUAL_FIDO',
-                    authenticator: 'Manual FIDO',
-                    metadata: {
-                        additionalData: {
-                            challengeData: btoa(JSON.stringify({
-                                publicKeyCredentialRequestOptions: {
-                                    challenge: 'mock-challenge',
-                                    allowCredentials: [{
-                                        id: 'mock-credential-id',
-                                        type: 'public-key'
-                                    }]
-                                },
-                                requestId: 'manual-request-id'
-                            }))
-                        }
-                    }
-                };
-                
-                console.log('🔍 Created mock authenticator for WebAuthn');
-                showMessage('native-auth-status-message', 'Proceeding with WebAuthn authentication...', 'info');
-                await getPasskeyChallenge(flowData.flowId, mockAuthenticator.authenticatorId);
+            if (biometricOption) {
+                console.log('🔍 Biometric option found:', biometricOption);
+                await performWebAuthnNativeAuth(challengeData, challengeData.flowId, biometricOption.authenticatorId);
             } else {
-                throw new Error('Biometric option not available');
+                console.log('🔍 No biometric option found in challenge data');
+                console.log('🔍 Available authenticators:', challengeData.nextStep.authenticators);
+                throw new Error('Biometric option not available in challenge data');
+            }
+        } else {
+            // Fallback: if init response doesn't contain challenge data, try old logic
+            console.log('🔍 No challenge data in init response, falling back to old logic...');
+            console.log('🔍 Next step:', challengeData.nextStep);
+            console.log('🔍 Step type:', challengeData.nextStep?.stepType);
+            console.log('🔍 Authenticators:', challengeData.nextStep?.authenticators);
+            
+            // Try to find biometric option regardless of step type
+            let biometricOption = null;
+            if (challengeData.nextStep && challengeData.nextStep.authenticators) {
+                biometricOption = challengeData.nextStep.authenticators.find(auth => 
+                    auth.authenticator === 'Passkey' || 
+                    auth.authenticatorId === 'RklET0F1dGhlbnRpY2F0b3I6TE9DQUw' ||
+                    auth.authenticatorId === 'FIDOAuthenticator:LOCAL' ||
+                    auth.authenticatorId === 'FIDOAuthenticator'
+                );
+            }
+            
+            console.log('🔍 Biometric option found:', biometricOption);
+            
+            if (biometricOption) {
+                showMessage('native-auth-status-message', 'Biometric option found, getting challenge...', 'info');
+                await getPasskeyChallenge(challengeData.flowId, biometricOption.authenticatorId);
+            } else {
+                console.log('🔍 No biometric option found in authenticators');
+                console.log('🔍 Available authenticators:', challengeData.nextStep?.authenticators);
+                
+                // Check if there are any authenticators at all
+                if (!challengeData.nextStep || !challengeData.nextStep.authenticators || challengeData.nextStep.authenticators.length === 0) {
+                    console.log('🔍 No authenticators available, creating mock authenticator for WebAuthn...');
+                    
+                    // Create a mock authenticator to allow WebAuthn to proceed
+                    const mockAuthenticator = {
+                        authenticatorId: 'MANUAL_FIDO',
+                        authenticator: 'Manual FIDO',
+                        metadata: {
+                            additionalData: {
+                                challengeData: btoa(JSON.stringify({
+                                    publicKeyCredentialRequestOptions: {
+                                        challenge: 'mock-challenge',
+                                        allowCredentials: [{
+                                            id: 'mock-credential-id',
+                                            type: 'public-key'
+                                        }]
+                                    },
+                                    requestId: 'manual-request-id'
+                                }))
+                            }
+                        }
+                    };
+                    
+                    console.log('🔍 Created mock authenticator for WebAuthn');
+                    showMessage('native-auth-status-message', 'Proceeding with WebAuthn authentication...', 'info');
+                    await getPasskeyChallenge(challengeData.flowId, mockAuthenticator.authenticatorId);
+                } else {
+                    throw new Error('Biometric option not available');
+                }
             }
         }
 

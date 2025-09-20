@@ -49,7 +49,10 @@ public class NativeAuthController {
     
     /**
      * Get challenge for passkey authentication
+     * @deprecated This endpoint is deprecated. Challenge is now included in /init response.
+     * Use /init endpoint instead which automatically includes challenge data.
      */
+    @Deprecated
     @PostMapping("/challenge")
     public ResponseEntity<ApiResponse<JsonNode>> getPasskeyChallenge(
             @Valid @RequestBody NativeAuthChallengeRequest request) {

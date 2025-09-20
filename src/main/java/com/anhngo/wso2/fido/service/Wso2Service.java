@@ -538,10 +538,11 @@ public class Wso2Service {
     
     /**
      * Initialize native authentication flow - call /oauth2/authorize/ endpoint
+     * Then automatically get challenge if biometric option is available
      */
     public JsonNode initNativeAuth(String clientId, String redirectUri, String scope, String responseType, String responseMode) {
         try {
-            // Call /oauth2/authorize/ endpoint directly as per WSO2 IS documentation
+            // Step 1: Call /oauth2/authorize/ endpoint directly as per WSO2 IS documentation
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -579,7 +580,45 @@ public class Wso2Service {
                 throw new RuntimeException("WSO2 IS returned status: " + response.getStatusCode());
             }
 
-            return objectMapper.readTree(response.getBody());
+            JsonNode initResponse = objectMapper.readTree(response.getBody());
+            
+            // Step 2: Check if biometric option is available and get challenge automatically
+            if (initResponse.has("nextStep") && initResponse.get("nextStep").has("authenticators")) {
+                JsonNode authenticators = initResponse.get("nextStep").get("authenticators");
+                
+                // Look for biometric/passkey authenticator
+                String biometricAuthenticatorId = null;
+                for (JsonNode authenticator : authenticators) {
+                    if (authenticator.has("authenticatorId")) {
+                        String authenticatorId = authenticator.get("authenticatorId").asText();
+                        if (authenticatorId.contains("FIDO") || authenticatorId.contains("Passkey") || 
+                            authenticatorId.equals("RklET0F1dGhlbnRpY2F0b3I6TE9DQUw")) {
+                            biometricAuthenticatorId = authenticatorId;
+                            break;
+                        }
+                    }
+                }
+                
+                // If biometric authenticator found, get challenge automatically and return only challenge data
+                if (biometricAuthenticatorId != null && initResponse.has("flowId")) {
+                    String flowId = initResponse.get("flowId").asText();
+                    logger.info("Found biometric authenticator: {}, getting challenge for flow: {}", biometricAuthenticatorId, flowId);
+                    
+                    try {
+                        JsonNode challengeResponse = getPasskeyChallenge(flowId, biometricAuthenticatorId);
+                        
+                        logger.info("Successfully retrieved challenge, returning challenge data only");
+                        return challengeResponse;
+                        
+                    } catch (Exception challengeError) {
+                        logger.warn("Failed to get challenge automatically, returning init response only: {}", challengeError.getMessage());
+                        // Return init response without challenge if challenge call fails
+                        return initResponse;
+                    }
+                }
+            }
+            
+            return initResponse;
 
         } catch (Exception e) {
             logger.error("Error calling WSO2 IS native auth init", e);
