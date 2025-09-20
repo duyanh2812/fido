@@ -37,11 +37,8 @@
             </div>
 
             <div class="action-buttons">
-                <button onclick="goToLogin()" class="btn btn-primary">
-                    <i class="fas fa-sign-in-alt"></i> Go to Login
-                </button>
-                <button onclick="testPasskeyAgain()" class="btn btn-secondary">
-                    <i class="fas fa-redo"></i> Test Passkey Again
+                <button onclick="logout()" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
         </div>
@@ -73,8 +70,8 @@
         });
 
         // Go to login page
-        function goToLogin() {
-            console.log('🔍 Clearing WebAuthn session before redirecting to login...');
+        function logout() {
+            console.log('🔍 Logout: Starting logout process...');
             
             // Clear authentication tokens but keep credentialId for Native Authentication
             localStorage.removeItem('accessToken');
@@ -86,21 +83,21 @@
             localStorage.removeItem('lastUsedCredentialId');
             
             // Keep credentialId for Native Authentication
-            console.log('🔍 Keeping credentialId for Native Authentication:', localStorage.getItem('credentialId'));
+            console.log('🔍 Logout: Keeping credentialId for Native Authentication:', localStorage.getItem('credentialId'));
             
             // Clear WebAuthn session
             if (navigator.credentials && navigator.credentials.preventSilentAccess) {
                 navigator.credentials.preventSilentAccess();
-                console.log('🔍 Cleared WebAuthn silent access');
+                console.log('🔍 Logout: Cleared WebAuthn silent access');
             }
             
             // Clear session storage
             if (sessionStorage) {
                 sessionStorage.clear();
-                console.log('🔍 Cleared session storage');
+                console.log('🔍 Logout: Cleared session storage');
             }
             
-            console.log('🔍 Authentication tokens cleared, keeping credentialId, redirecting to login page...');
+            console.log('🔍 Logout: Authentication tokens cleared, keeping credentialId, redirecting to login page...');
             window.location.href = '/';
         }
 
