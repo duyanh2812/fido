@@ -266,60 +266,24 @@
 
         // FIDO Deregistration function
         async function deregisterFidoCredential() {
-            // Get current username to find the correct credential ID
-            let currentUsername = 'admin'; // fallback
-            
-            // Try to get userId from access token
-            try {
-                const accessToken = localStorage.getItem('accessToken');
-                if (accessToken) {
-                    const payload = accessToken.split('.')[1];
-                    const decodedPayload = JSON.parse(atob(payload));
-                    console.log('🔍 Access Token payload for deregister userId extraction:', decodedPayload);
-                    
-                    // Extract userId from access token
-                    const userId = decodedPayload.sub || decodedPayload.user_id || decodedPayload.userId;
-                    if (userId) {
-                        currentUsername = userId;
-                        console.log('🔍 Using userId from Access Token for deregister:', userId);
-                    } else {
-                        console.warn('No userId found in access token for deregister');
-                    }
-                }
-            } catch (e) {
-                console.warn('Could not decode userId from Access Token for deregister:', e);
-            }
-            
-            // Get the credential ID for this specific userId (the one that was stored before)
-            const credentialId = localStorage.getItem(`credentialId${currentUsername}`);
-            console.log(`🔍 Looking for credential ID for userId ${currentUsername}:`, credentialId);
-            console.log(`🔍 Credential key: credentialId${currentUsername}`);
-            
-            // Debug: Show all credentialId keys in localStorage
-            console.log('🔍 All credentialId keys in localStorage:');
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('credentialId')) {
-                    const userId = key.replace('credentialId', '');
-                    const credential = localStorage.getItem(key);
-                    console.log(`  ${key}: ${credential} (userId: ${userId})`);
-                }
-            }
+            // Get the single credential ID from localStorage
+            const credentialId = localStorage.getItem('credentialId');
+            console.log('🔍 Looking for single credentialId:', credentialId);
             
             if (!credentialId) {
-                showMessage('fido-status-message', `No FIDO credential registered for user ${currentUsername}`, 'error');
+                showMessage('fido-status-message', 'No FIDO credential registered. Please register a passkey first.', 'error');
                 return;
             }
 
-            if (!confirm(`Are you sure you want to deregister your FIDO credential for user ${currentUsername}? This action cannot be undone.`)) {
+            if (!confirm('Are you sure you want to deregister your FIDO credential? This action cannot be undone.')) {
                 return;
             }
 
             try {
-                showLoading(`Deregistering FIDO credential for user ${currentUsername}...`);
+                showLoading('Deregistering FIDO credential...');
                 hideMessage('fido-status-message');
 
-                console.log(`🔍 Deregistering credential ID: ${credentialId} for username: ${currentUsername}`);
+                console.log(`🔍 Deregistering credential ID: ${credentialId}`);
 
                 const response = await makeRequest(`/fido/deregister/${credentialId}`, {
                     method: 'DELETE',
@@ -337,7 +301,7 @@
                 localStorage.removeItem('credentialId');
                 window.registeredCredentialId = null;
 
-                showMessage('fido-status-message', `FIDO credential deregistered successfully for user ${currentUsername}!`, 'success');
+                showMessage('fido-status-message', 'FIDO credential deregistered successfully!', 'success');
                 hideLoading();
 
                 // Update button visibility
