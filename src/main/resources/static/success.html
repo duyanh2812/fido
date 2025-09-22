@@ -11,7 +11,6 @@
     <div class="container">
         <header class="header">
             <h1><i class="fas fa-check-circle text-success"></i> Login Success!</h1>
-            <p>Biometric authentication completed successfully</p>
         </header>
 
         <div class="main-content">
@@ -22,7 +21,6 @@
                 </div>
                 <div class="card-body">
                     <div class="success-message">
-                        <i class="fas fa-fingerprint fa-3x text-success"></i>
                         <h3 id="success-title">🎉 Passkey Login Successful!</h3>
                         <p id="success-description">You have successfully authenticated using your biometric credentials.</p>
                     </div>
@@ -384,9 +382,9 @@
             document.getElementById('success-description').textContent = 'You have successfully authenticated using biometric authentication with fingerprint or face recognition.';
             
             // Show success alert for Biometric Authentication
-            setTimeout(() => {
-                alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
-            }, 500);
+            // setTimeout(() => {
+            //     alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
+            // }, 500);
         } else if (authType === 'password') {
             // Update success message for Password Authentication
             document.getElementById('success-title').textContent = '🎉 Password Login Successful!';
@@ -945,9 +943,9 @@
                 showMessage('fido-status-message', '🎉 Biometric authentication successful!', 'success');
                 
                 // Show success alert
-                setTimeout(() => {
-                    alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
-                }, 500);
+                // setTimeout(() => {
+                //     alert('🎉 Biometric Authentication Successful!\n\nYou have successfully authenticated using biometric authentication with fingerprint or face recognition.');
+                // }, 500);
                 
             } catch (error) {
                 console.error('❌ ERROR CAUGHT - Analyzing error type:');
