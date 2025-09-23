@@ -9,8 +9,15 @@ services:
     environment:
       - CARBON_OFFSET=0
     volumes:
-      - wso2is-data:/home/wso2carbon/wso2is-7.1.0/repository/database
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/conf/deployment.toml:/home/wso2carbon/wso2is-7.1.0/repository/conf/deployment.toml:ro
+      # Mount entire WSO2 IS localhost data
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/database:/home/wso2carbon/wso2is-7.1.0/repository/database
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/conf:/home/wso2carbon/wso2is-7.1.0/repository/conf
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/logs:/home/wso2carbon/wso2is-7.1.0/repository/logs
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/deployment:/home/wso2carbon/wso2is-7.1.0/repository/deployment
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/tenants:/home/wso2carbon/wso2is-7.1.0/repository/tenants
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/components:/home/wso2carbon/wso2is-7.1.0/repository/components
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/data:/home/wso2carbon/wso2is-7.1.0/repository/data
+      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/resources:/home/wso2carbon/wso2is-7.1.0/repository/resources
     networks:
       - fido-network
     healthcheck:
@@ -42,9 +49,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-volumes:
-  wso2is-data:
 
 networks:
   fido-network:
