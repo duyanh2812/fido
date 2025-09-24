@@ -1,23 +1,13 @@
 services:
-  # WSO2 Identity Server 7.1.0
+  # WSO2 IS with all your localhost data and permission fixes
   wso2is:
-    image: wso2/wso2is:7.1.0
+    image: ngoduyanh/wso2is-custom-permission-fixed:latest
     container_name: wso2is
     ports:
       - "9443:9443"
       - "9763:9763"
     environment:
       - CARBON_OFFSET=0
-    volumes:
-      # Mount entire WSO2 IS localhost data
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/database:/home/wso2carbon/wso2is-7.1.0/repository/database
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/conf:/home/wso2carbon/wso2is-7.1.0/repository/conf
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/logs:/home/wso2carbon/wso2is-7.1.0/repository/logs
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/deployment:/home/wso2carbon/wso2is-7.1.0/repository/deployment
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/tenants:/home/wso2carbon/wso2is-7.1.0/repository/tenants
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/components:/home/wso2carbon/wso2is-7.1.0/repository/components
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/data:/home/wso2carbon/wso2is-7.1.0/repository/data
-      - /Users/anhngo/Library/WSO2/wso2is-7.1.0/repository/resources:/home/wso2carbon/wso2is-7.1.0/repository/resources
     networks:
       - fido-network
     healthcheck:
@@ -27,28 +17,29 @@ services:
       retries: 5
       start_period: 60s
 
-  # Spring Boot FIDO Application
+  # FIDO Application
   fido-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ngoduyanh/fido-app:latest
     container_name: fido-app
     ports:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - WSO2_IS_BASE_URL=https://wso2is:9443
+      - WSO2_IS_BASE_URL=https://localhost:9443
+    networks:
+      - fido-network
     depends_on:
       wso2is:
         condition: service_healthy
-    networks:
-      - fido-network
     healthcheck:
       test: ["CMD", "curl", "-f", "https://localhost:8080/actuator/health", "-k"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    # Fix origin mismatch: map localhost to host IP
+    extra_hosts:
+      - "localhost:host-gateway"
 
 networks:
   fido-network:
