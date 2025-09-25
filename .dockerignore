@@ -1,6 +1,6 @@
 # Gradle
 .gradle/
-build/
+# build/ - commented out to allow copying JAR files
 
 # IDE
 .idea/

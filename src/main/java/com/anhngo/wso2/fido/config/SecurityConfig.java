@@ -36,6 +36,7 @@ public class SecurityConfig {
                 .requestMatchers("/oauth2/**").permitAll()
                 .requestMatchers("/wso2-proxy/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/.well-known/**").permitAll()
                 .anyRequest().authenticated()
             );
         
