@@ -1,0 +1,65 @@
+[server]
+hostname = "wso2.18.143.154.126.nip.io"
+node_ip = "172.31.12.87"
+base_path = "https://$ref{server.hostname}:${carbon.management.port}"
+
+[super_admin]
+username = "admin"
+password = "admin"
+create_admin_account = true
+
+[user_store]
+type = "database_unique_id"
+
+[database.identity_db]
+type = "h2"
+url = "jdbc:h2:./repository/database/WSO2IDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=60000"
+username = "wso2carbon"
+password = "wso2carbon"
+
+[database.shared_db]
+type = "h2"
+url = "jdbc:h2:./repository/database/WSO2SHARED_DB;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=60000"
+username = "wso2carbon"
+password = "wso2carbon"
+
+[keystore.primary]
+file_name = "wso2carbon.p12"
+password = "wso2carbon"
+type="PKCS12"
+
+[truststore]
+file_name="client-truststore.p12"
+password="wso2carbon"
+type="PKCS12"
+
+[account_recovery.endpoint.auth]
+hash= "66cd9688a2ae068244ea01e70f0e230f5623b7fa4cdecb65070a09ec06452262"
+
+[identity.auth_framework.endpoint]
+app_password= "dashboard"
+
+[cors]
+allow_any_origin = false
+allowed_origins = ["https://fido.18.143.154.126.nip.io", "https://wso2.18.143.154.126.nip.io"]
+allow_subdomains = false
+supported_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+supported_headers = ["Authorization", "Content-Type", "X-WSO2-Tenant", "X-Requested-With"]
+exposed_headers = ["Location", "Content-Location"]
+supports_credentials = true
+max_age = 3600
+tag_requests = false
+
+[fido.webAuthn]
+trusted_origins = ["https://fido.18.143.154.126.nip.io", "https://wso2.18.143.154.126.nip.io"]
+
+[authentication.fido2]
+app_id = "fido.18.143.154.126.nip.io"
+origins = ["https://fido.18.143.154.126.nip.io", "https://wso2.18.143.154.126.nip.io"]
+
+[fido.trusted]
+origins=["https://fido.18.143.154.126.nip.io", "https://wso2.18.143.154.126.nip.io"]
+
+[authentication.authenticator.basic.parameters]
+showAuthFailureReason=true
+showAuthFailureReasonOnLoginPage=true

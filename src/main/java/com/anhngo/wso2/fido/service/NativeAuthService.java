@@ -5,9 +5,13 @@ import com.anhngo.wso2.fido.dto.NativeAuthCredentials;
 import com.anhngo.wso2.fido.dto.NativeAuthInitRequest;
 import com.anhngo.wso2.fido.dto.NativeAuthVerifyRequest;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import java.util.Base64;
 
 @Service
 public class NativeAuthService {
@@ -15,9 +19,12 @@ public class NativeAuthService {
     private static final Logger logger = LoggerFactory.getLogger(NativeAuthService.class);
     
     private final Wso2Service wso2Service;
+    private final ObjectMapper objectMapper;
+    
     
     public NativeAuthService(Wso2Service wso2Service) {
         this.wso2Service = wso2Service;
+        this.objectMapper = new ObjectMapper();
     }
     
     /**
@@ -35,6 +42,7 @@ public class NativeAuthService {
                 request.getResponseMode()
             );
             
+            
             logger.info("Successfully initialized native authentication flow");
             return result;
         } catch (Exception error) {
@@ -42,6 +50,7 @@ public class NativeAuthService {
             throw error;
         }
     }
+    
     
     /**
      * Get challenge for passkey authentication

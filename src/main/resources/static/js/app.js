@@ -22,9 +22,7 @@ const NATIVE_AUTH_ENDPOINTS = {
     health: `${API_BASE}/native-auth/health`
 };
 
-// WSO2 OAuth2 credentials
-const WSO2_CLIENT_ID = 'jDsWosgzDKXGRUPHXhLnlm1wQQ8a';
-const WSO2_CLIENT_SECRET = 'bklLE13ZYmYY9Rr_72fRhkY9wnNleF_aDVf52KVI_rga';
+// WSO2 OAuth2 credentials - removed as backend uses config
 
 // Utility functions
 function decodeJWT(token) {
@@ -305,8 +303,8 @@ function redirectToWso2PasskeyLogin() {
         // Add parameters for OAuth2 authorization
         const params = new URLSearchParams({
             'response_type': 'code',
-            'client_id': 'jDsWosgzDKXGRUPHXhLnlm1wQQ8a', // Use existing OAuth2 client
-            'redirect_uri': 'https://localhost:8080/oauth2/code/wso2',
+            'client_id': 'iNd9bRH7tknjJYOtnijxEt39LDUa', // Use existing OAuth2 client
+            'redirect_uri': 'https://anhngo.site/oauth2/code/wso2',
             'scope': 'openid profile',
             'state': 'passkey_login',
             'username': username // Pre-fill username
@@ -346,6 +344,11 @@ async function performWebAuthnAuthentication(authenticationOptions, username) {
         const credentialId = base64ToArrayBuffer(authenticationOptions.publicKeyCredentialRequestOptions.allowCredentials[0].id);
         
         // Prepare the public key credential request options
+        const currentHostname = window.location.hostname;
+        const rpId = authenticationOptions.publicKeyCredentialRequestOptions.rpId || window.location.origin;
+        console.log('🔍 Authentication rpId from server:', authenticationOptions.publicKeyCredentialRequestOptions.rpId);
+        console.log('🔍 Authentication rpId we will use:', rpId);
+        
         const publicKeyCredentialRequestOptions = {
             ...authenticationOptions.publicKeyCredentialRequestOptions,
             challenge: challenge,
@@ -353,7 +356,7 @@ async function performWebAuthnAuthentication(authenticationOptions, username) {
                 ...authenticationOptions.publicKeyCredentialRequestOptions.allowCredentials[0],
                 id: credentialId
             }],
-            rpId: "localhost" // Use localhost as rpId (must be domain suffix of current origin https://localhost:8080)
+            rpId: rpId // Use rpId from server or current hostname
         };
         
         console.log('Public key credential request options:', publicKeyCredentialRequestOptions);
@@ -531,19 +534,62 @@ async function performWebAuthnRegistration(registrationOptions) {
     try {
         showMessage('fido-status-message', 'Starting biometric registration...', 'info');
         
+        // Debug: Log full registration options from server
+        console.log('🔍 Full registration options from server:', registrationOptions);
+        console.log('🔍 publicKeyCredentialCreationOptions from server:', registrationOptions.publicKeyCredentialCreationOptions);
+        
         // Convert base64 challenge to ArrayBuffer
-        const challenge = base64ToArrayBuffer(registrationOptions.publicKeyCredentialCreationOptions.challenge);
+        console.log('🔍 Raw challenge from server:', registrationOptions.publicKeyCredentialCreationOptions.challenge);
+        let challenge;
+        try {
+            challenge = base64ToArrayBuffer(registrationOptions.publicKeyCredentialCreationOptions.challenge);
+            console.log('🔍 Converted challenge:', challenge);
+        } catch (error) {
+            console.error('❌ Error converting challenge:', error);
+            throw new Error(`Failed to convert challenge: ${error.message}`);
+        }
         
         // Convert user ID to ArrayBuffer
-        const userId = base64ToArrayBuffer(registrationOptions.publicKeyCredentialCreationOptions.user.id);
+        console.log('🔍 Raw user ID from server:', registrationOptions.publicKeyCredentialCreationOptions.user.id);
+        let userId;
+        try {
+            userId = base64ToArrayBuffer(registrationOptions.publicKeyCredentialCreationOptions.user.id);
+            console.log('🔍 Converted user ID:', userId);
+        } catch (error) {
+            console.error('❌ Error converting user ID:', error);
+            throw new Error(`Failed to convert user ID: ${error.message}`);
+        }
         
         // Prepare the public key credential creation options
+        const currentHostname = window.location.hostname;
+        console.log('🔍 Current hostname:', currentHostname);
+        console.log('🔍 Current origin:', window.location.origin);
+        
+        // Use the rp.id from server response, or fallback to current origin
+        const serverRpId = registrationOptions.publicKeyCredentialCreationOptions.rp?.id;
+        console.log('🔍 rpId from server:', serverRpId);
+        console.log('🔍 rp object from server:', registrationOptions.publicKeyCredentialCreationOptions.rp);
+        
+        // Determine the best rp.id to use
+        let rpId;
+        if (serverRpId && serverRpId !== '') {
+            rpId = serverRpId;
+            console.log('🔍 Using rpId from server:', rpId);
+        } else {
+            rpId = window.location.hostname; // Use hostname instead of full origin
+            console.log('🔍 Using hostname as rpId:', rpId);
+        }
+        
+        console.log('🔍 Final rpId we will use:', rpId);
+        console.log('🔍 Current origin:', window.location.origin);
+        console.log('🔍 Current hostname:', window.location.hostname);
+        
         const publicKeyCredentialCreationOptions = {
             ...registrationOptions.publicKeyCredentialCreationOptions,
             challenge: challenge,
             rp: {
                 ...registrationOptions.publicKeyCredentialCreationOptions.rp,
-                id: "localhost" // Use localhost as rpId (must be domain suffix of current origin https://localhost:8080)
+                id: rpId // Use the rpId from server or current hostname
             },
             user: {
                 ...registrationOptions.publicKeyCredentialCreationOptions.user,
@@ -559,6 +605,8 @@ async function performWebAuthnRegistration(registrationOptions) {
         };
         
         console.log('Public key credential creation options:', publicKeyCredentialCreationOptions);
+        console.log('🔍 Final rp.id being used:', publicKeyCredentialCreationOptions.rp?.id);
+        console.log('🔍 Final rp.name being used:', publicKeyCredentialCreationOptions.rp?.name);
         
         // Call WebAuthn API to create credentials
         showMessage('fido-status-message', 'Please scan your biometric (fingerprint/face)...', 'info');
@@ -822,7 +870,6 @@ async function startNativeAuth() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                clientId: WSO2_CLIENT_ID,
                 redirectUri: window.location.origin + '/oauth2/code/wso2',
                 scope: 'openid profile',
                 responseType: 'code',

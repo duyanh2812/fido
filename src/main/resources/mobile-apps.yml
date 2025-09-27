@@ -1,12 +1,11 @@
 mobile:
   apps:
     ios:
-      - appId: "C0289CB5B6"
-        packageName: "com.tymex.authentication.fido"
+      - appId: "EYP853985W"
+        packageName: "com.example.passkeyapp"
         description: "Tymex FIDO Authentication App"
     android:
-      - packageName: "com.gotyme.fido2demo.demo"
+      - packageName: "com.codeitcreative.passkeydemo"
         sha256Fingerprints:
           - "5F:06:39:93:00:28:93:C9:1D:79:C0:02:E8:F0:8D:C2:89:87:B4:5B:C4:2D:10:A7:5E:42:AD:B3:E8:55:91:14"
-          - "D6:E3:30:A8:8F:F5:4E:66:0A:44:D3:16:ED:38:9F:B1:87:AE:CD:8D:5E:43:9E:85:91:C0:28:FF:E5:42:01:F5"
         description: "Tymex FIDO Authentication App"

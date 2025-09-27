@@ -1,5 +1,5 @@
 services:
-  # WSO2 IS with all your localhost data and permission fixes
+  # WSO2 IS Custom Image with your localhost data
   wso2is:
     image: ngoduyanh/wso2is-custom-permission-fixed:latest
     container_name: wso2is
@@ -8,6 +8,8 @@ services:
       - "9763:9763"
     environment:
       - CARBON_OFFSET=0
+    volumes:
+      - ./deployment-aws.toml:/home/wso2carbon/wso2is-7.1.0/repository/conf/deployment.toml
     networks:
       - fido-network
     healthcheck:
@@ -25,7 +27,12 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - WSO2_IS_BASE_URL=https://localhost:9443
+      - WSO2_IS_BASE_URL=https://wso2is:9443
+      - WSO2_IS_OAUTH_CLIENT_KEY=y_3HL0fqNgSgacLCZvRwp6nImpwa
+      - WSO2_IS_OAUTH_CLIENT_SECRET=X6uwUaAKb4zDs9zOOEbsg3L04nJnu1qqrZR2QVd9Lqoa
+      - FIDO_RP_ID=fido.18.143.154.126.nip.io
+      - FIDO_APP_ID=https://fido.18.143.154.126.nip.io
+      - FIDO_TRUSTED_ORIGINS=https://wso2.18.143.154.126.nip.io,https://fido.18.143.154.126.nip.io
     networks:
       - fido-network
     depends_on:

@@ -1,0 +1,23 @@
+services:
+  # FIDO Application - Standalone (connects to external WSO2 IS)
+  fido-app:
+    image: ngoduyanh/fido-app:latest
+    container_name: fido-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - WSO2_IS_BASE_URL=https://ndanh.site
+      - WSO2_IS_OAUTH_CLIENT_KEY=y_3HL0fqNgSgacLCZvRwp6nImpwa
+      - WSO2_IS_OAUTH_CLIENT_SECRET=X6uwUaAKb4zDs9zOOEbsg3L04nJnu1qqrZR2QVd9Lqoa
+      - FIDO_APP_ID=https://anhngo.site
+      - FIDO_TRUSTED_ORIGINS=https://anhngo.site
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost:8080/actuator/health", "-k"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Fix origin mismatch: map localhost to host IP
+    extra_hosts:
+      - "localhost:host-gateway"

@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public class NativeAuthInitRequest {
     
-    @NotBlank(message = "Client ID is required")
+    // Client ID is now handled by backend config
     private String clientId;
     
     @NotBlank(message = "Redirect URI is required")

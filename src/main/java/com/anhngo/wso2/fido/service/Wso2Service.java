@@ -26,7 +26,7 @@ public class Wso2Service {
     private final RestTemplate restTemplate;
     private final Wso2Config wso2Config;
     private final ObjectMapper objectMapper;
-    
+
     // Cache để lưu admin session
     private final Map<String, String> adminSessionCache = new ConcurrentHashMap<>();
     private static final String ADMIN_SESSION_KEY = "admin_session";
@@ -181,7 +181,8 @@ public class Wso2Service {
 
             // Tạo form data như WSO2 IS yêu cầu
             MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-            formData.add("appId", "https://localhost:9443");
+            String appId = "https://anhngo.site";
+            formData.add("appId", appId);
 
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(formData, headers);
 
@@ -366,7 +367,8 @@ public class Wso2Service {
 
             // Tạo form data như WSO2 IS yêu cầu
             MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-            formData.add("appId", "https://localhost:9443");
+            String appId = "https://anhngo.site";
+            formData.add("appId", appId);
 
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(formData, headers);
 
@@ -502,7 +504,7 @@ public class Wso2Service {
             Map<String, String> tokenRequest = new HashMap<>();
             tokenRequest.put("grant_type", "authorization_code");
             tokenRequest.put("code", code);
-            tokenRequest.put("redirect_uri", "https://localhost:8080/oauth2/code/wso2");
+            tokenRequest.put("redirect_uri", "https://anhngo.site/oauth2/code/wso2");
 
             // Use OAuth client credentials
             String credentials = wso2Config.getOauth().getClientKey() + ":" + wso2Config.getOauth().getClientSecret();
@@ -547,14 +549,14 @@ public class Wso2Service {
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 
-            // Add Basic Authentication with client credentials
-            String credentials = clientId + ":" + wso2Config.getOauth().getClientSecret();
+            // Add Basic Authentication with client credentials from config
+            String credentials = wso2Config.getOauth().getClientKey() + ":" + wso2Config.getOauth().getClientSecret();
             String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
             headers.setBasicAuth(encodedCredentials);
 
             // Build form data for OAuth2 authorize request
             Map<String, String> formData = new HashMap<>();
-            formData.put("client_id", clientId);
+            formData.put("client_id", wso2Config.getOauth().getClientKey());
             formData.put("redirect_uri", redirectUri);
             formData.put("scope", scope != null ? scope : "openid profile");
             formData.put("response_type", responseType != null ? responseType : "code");

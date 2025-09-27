@@ -41,20 +41,17 @@ public class Wso2ProxyController {
         try {
             String tokenUrl = wso2Config.getBaseUrl() + "/oauth2/token";
 
-            // Tạo Basic Auth header
-            String credentials = wso2Config.getOauth().getClientKey() + ":" + wso2Config.getOauth().getClientSecret();
-            String encodedCredentials = Base64.getEncoder().encodeToString(credentials.getBytes());
-
             // Tạo headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-            headers.setBasicAuth(encodedCredentials);
 
             // Tạo form data
             MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
             formData.add("grant_type", "password");
             formData.add("username", username);
             formData.add("password", password);
+            formData.add("client_id", wso2Config.getOauth().getClientKey());
+            formData.add("client_secret", wso2Config.getOauth().getClientSecret());
             formData.add("scope", "openid internal_login");
 
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(formData, headers);
